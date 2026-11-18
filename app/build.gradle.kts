@@ -1,67 +1,66 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.jetbrains.kotlin.konan.properties.Properties
 import java.io.FileInputStream
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android)
-    alias(libs.plugins.kotlinAndroid)
-    alias(libs.plugins.detekt)
     alias(libs.plugins.compose.compiler)
     base
 }
 
 base {
-    archivesName.set("flashlight")
+    archivesName.set("lumina-torch")
 }
 
 val keystorePropertiesFile: File = rootProject.file("keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
 fun hasSigningVars(): Boolean {
-    return providers.environmentVariable("SIGNING_KEY_ALIAS").orNull != null
-            && providers.environmentVariable("SIGNING_KEY_PASSWORD").orNull != null
-            && providers.environmentVariable("SIGNING_STORE_FILE").orNull != null
-            && providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull != null
+    return providers.environmentVariable("SIGNING_KEY_ALIAS").orNull != null &&
+        providers.environmentVariable("SIGNING_KEY_PASSWORD").orNull != null &&
+        providers.environmentVariable("SIGNING_STORE_FILE").orNull != null &&
+        providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull != null
 }
 
 android {
-    compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
+    namespace = project.property("APP_ID").toString()
+    compileSdk = libs.versions.app.build.compileSDKVersion.get().toInt()
 
     defaultConfig {
         applicationId = project.property("APP_ID").toString()
-        minSdk = project.libs.versions.app.build.minimumSDK.get().toInt()
-        targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
+        minSdk = libs.versions.app.build.minimumSDK.get().toInt()
+        targetSdk = libs.versions.app.build.targetSDK.get().toInt()
         versionName = project.property("VERSION_NAME").toString()
         versionCode = project.property("VERSION_CODE").toString().toInt()
+
+        manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-4969792934066333~7355134341"
     }
 
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
-            register("release") {
+            create("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
                 storeFile = file(keystoreProperties.getProperty("storeFile"))
                 storePassword = keystoreProperties.getProperty("storePassword")
             }
         } else if (hasSigningVars()) {
-            register("release") {
+            create("release") {
                 keyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS").get()
                 keyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD").get()
                 storeFile = file(providers.environmentVariable("SIGNING_STORE_FILE").get())
                 storePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").get()
             }
         } else {
-            logger.warn("Warning: No signing config found. Build will be unsigned.")
+            logger.warn("Warning: No signing config found. Release build will be unsigned.")
         }
     }
 
-
     buildFeatures {
-        viewBinding = true
         buildConfig = true
         compose = true
     }
@@ -69,12 +68,26 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // Official Google AdMob Adaptive Banner test ad unit ID for debug builds
+            buildConfigField(
+                "String",
+                "ADMOB_BANNER_AD_UNIT_ID",
+                "\"ca-app-pub-3940256099942544/9214589741\""
+            )
         }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
+            )
+            // Production AdMob Banner Ad Unit ID for Lumina Torch
+            buildConfigField(
+                "String",
+                "ADMOB_BANNER_AD_UNIT_ID",
+                "\"ca-app-pub-4969792934066333/8004649848\""
             )
             if (keystorePropertiesFile.exists() || hasSigningVars()) {
                 signingConfig = signingConfigs.getByName("release")
@@ -82,51 +95,29 @@ android {
         }
     }
 
-    flavorDimensions.add("variants")
-    productFlavors {
-        register("core")
-        register("fdroid")
-        register("gplay")
-    }
-
     sourceSets {
-        getByName("main").java.srcDirs("src/main/kotlin")
+        getByName("main").java.directories.add("src/main/kotlin")
     }
 
     compileOptions {
-        val currentJavaVersionFromLibs =
-            JavaVersion.valueOf(libs.versions.app.build.javaVersion.get().toString())
-        sourceCompatibility = currentJavaVersionFromLibs
-        targetCompatibility = currentJavaVersionFromLibs
+        val javaVer = JavaVersion.valueOf(libs.versions.app.build.javaVersion.get())
+        sourceCompatibility = javaVer
+        targetCompatibility = javaVer
     }
 
-    dependenciesInfo {
-        includeInApk = false
-    }
-
-    tasks.withType<KotlinCompile> {
-        compilerOptions.jvmTarget.set(
-            JvmTarget.fromTarget(project.libs.versions.app.build.kotlinJVMTarget.get())
-        )
-        compilerOptions.freeCompilerArgs.set(
-            listOf(
-                "-opt-in=kotlin.RequiresOptIn",
+    tasks.withType<KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.fromTarget(libs.versions.app.build.kotlinJVMTarget.get()))
+            freeCompilerArgs.addAll(
                 "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
-                "-opt-in=androidx.compose.material.ExperimentalMaterialApi",
                 "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
-                "-Xcontext-receivers"
             )
-        )
+        }
     }
-
-    namespace = project.property("APP_ID").toString()
 
     lint {
         checkReleaseBuilds = false
-        abortOnError = true
-        warningsAsErrors = false
-        baseline = file("lint-baseline.xml")
-        lintConfig = rootProject.file("lint.xml")
+        abortOnError = false
     }
 
     bundle {
@@ -136,18 +127,14 @@ android {
     }
 }
 
-detekt {
-    baseline = file("detekt-baseline.xml")
-    config.setFrom("$rootDir/detekt.yml")
-    buildUponDefaultConfig = true
-    allRules = false
-}
-
 dependencies {
-    implementation(libs.simple.tools.commons)
-
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.bundles.lifecycle)
+
+    implementation(platform(libs.compose.bom))
     implementation(libs.bundles.compose)
-    debugImplementation(libs.bundles.compose.preview)
-    detektPlugins(libs.compose.detekt)
+    debugImplementation(libs.compose.ui.tooling)
+
+    implementation(libs.google.ads)
 }

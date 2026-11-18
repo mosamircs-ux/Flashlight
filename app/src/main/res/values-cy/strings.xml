@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_launcher_name">Fflacholau</string>
-    <string name="camera_error">Methwyd cael at y camera</string>
-    <string name="camera_permission">Rhaid cael caniatâd y camera i\'r effaith strobosgop</string>
-    <string name="show_bright_display">Dangos botwm dangosydd llachar</string>
-    <string name="show_stroboscope">Dangos botwm strobosgop</string>
-    <string name="turn_flashlight_on">Troi\'r fflacholau ymlaen wrth ddechrau</string>
-</resources>

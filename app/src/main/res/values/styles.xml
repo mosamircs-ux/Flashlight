@@ -1,10 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="AppTheme" parent="AppTheme.Base" />
-
-    <style name="FullScreenTheme" parent="AppTheme">
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowTranslucentNavigation">true</item>
+    <style name="Theme.LuminaTorch" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tactical_obsidian</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
+    <style name="Theme.LuminaTorch.FullScreen" parent="Theme.LuminaTorch">
+        <item name="android:windowFullscreen">true</item>
+    </style>
 </resources>
